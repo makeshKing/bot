@@ -13,8 +13,8 @@
    pip install -r requirements.txt
    ```
 
-2. **Get an OpenRouter API key**
-   - Sign up at openrouter.ai and create an API key (a free tier of Gemma 4 is being used with model ID `google/gemma-4-31b-it:free`)
+2. **Get a Google AI Studio API key**
+   - Sign up at [aistudio.google.com](https://aistudio.google.com) and create an API key. This calls Gemma 4 (`gemma-4-31b-it`) directly through Google's own infrastructure rather than through OpenRouter.
 
 3. **Create a Telegram bot**
    - Message @BotFather on Telegram
@@ -24,7 +24,7 @@
    ```
    cp .env.example .env
    ```
-   Then open `.env` and paste in your real `OPENROUTER_API_KEY` and `TELEGRAM_BOT_TOKEN`.
+   Then open `.env` and paste in your real `GEMINI_API_KEY` and `TELEGRAM_BOT_TOKEN`.
 
 5. **Run it**
    ```
@@ -48,7 +48,7 @@
 
 ## Things to change before showing this to real users
 - **Persona**: edit `persona.py` to adjust her personality, backstory, or style.
-- **Model**: A free tier of Gemma 4 is being used with the model ID `google/gemma-4-31b-it:free`. If you want to try different models, you can swap `MODEL_NAME` in `.env` with any model ID available on OpenRouter.
+- **Model**: Gemma 4 is served via Google's OpenAI-compatible endpoint using the model ID `gemma-4-31b-it`. If you wish to use other Gemini models (e.g., `gemini-2.5-flash`), you can swap `MODEL_NAME` in `.env`.
 - **Safety**: this MVP has no content moderation layer. Before any public
   launch, add a moderation check (either OpenAI's moderation endpoint or a
   custom filter) on both user input and model output.

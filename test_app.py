@@ -90,16 +90,9 @@ class TestSristiBot(unittest.TestCase):
         reply = bot.generate_reply(user_id, "hello")
         self.assertEqual(reply, "k gardai xau?")
 
-        # Check that extra_headers was passed to OpenRouter call
+        # Check that extra_headers is not passed
         _, kwargs = mock_client.chat.completions.create.call_args
-        self.assertIn("extra_headers", kwargs)
-        self.assertEqual(
-            kwargs["extra_headers"],
-            {
-                "HTTP-Referer": "https://your-project-name.example.com",
-                "X-Title": "Sristi Companion Bot",
-            },
-        )
+        self.assertNotIn("extra_headers", kwargs)
 
         # Check DB messages saved
         messages = bot.get_recent_messages(user_id)
@@ -109,17 +102,42 @@ class TestSristiBot(unittest.TestCase):
         self.assertEqual(messages[1]["role"], "assistant")
         self.assertEqual(messages[1]["content"], "k gardai xau?")
 
-    def test_openrouter_client_configuration(self):
-        saved_key = bot.OPENROUTER_API_KEY
+    @patch("bot.get_openai_client")
+    def test_generate_reply_strips_thoughts(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_completion = MagicMock()
+        mock_choice = MagicMock()
+        mock_choice.message.content = "<thought>\nUser said hi.\nI should respond in character.\n</thought>\n\nNamaste! Kasto xa?"
+        mock_completion.choices = [mock_choice]
+        mock_client.chat.completions.create.return_value = mock_completion
+        mock_get_client.return_value = mock_client
+
+        user_id = 5005
+        reply = bot.generate_reply(user_id, "hi")
+        self.assertEqual(reply, "Namaste! Kasto xa?")
+
+        # Check that the cleaned reply without thoughts was saved in DB
+        messages = bot.get_recent_messages(user_id)
+        self.assertEqual(messages[1]["content"], "Namaste! Kasto xa?")
+
+    def test_strip_thinking_tags(self):
+        self.assertEqual(bot.strip_thinking_tags("<thought>internal thoughts</thought>clean reply"), "clean reply")
+        self.assertEqual(bot.strip_thinking_tags("<thought>\nmulti\nline\n</thought>\n  clean  "), "clean")
+        self.assertEqual(bot.strip_thinking_tags("no thought tags"), "no thought tags")
+        self.assertEqual(bot.strip_thinking_tags("<thought>only thoughts</thought>"), "")
+        self.assertEqual(bot.strip_thinking_tags(""), "")
+
+    def test_gemini_client_configuration(self):
+        saved_key = bot.GEMINI_API_KEY
         saved_client = bot.client
         try:
-            bot.OPENROUTER_API_KEY = "test-openrouter-key"
+            bot.GEMINI_API_KEY = "test-gemini-key"
             bot.client = None
             client = bot.get_openai_client()
-            self.assertEqual(str(client.base_url).rstrip("/"), "https://openrouter.ai/api/v1")
-            self.assertEqual(bot.MODEL_NAME, "google/gemma-4-31b-it:free")
+            self.assertEqual(str(client.base_url), "https://generativelanguage.googleapis.com/v1beta/openai/")
+            self.assertEqual(bot.MODEL_NAME, "gemma-4-31b-it")
         finally:
-            bot.OPENROUTER_API_KEY = saved_key
+            bot.GEMINI_API_KEY = saved_key
             bot.client = saved_client
 
 
