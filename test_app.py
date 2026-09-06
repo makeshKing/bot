@@ -90,6 +90,17 @@ class TestSristiBot(unittest.TestCase):
         reply = bot.generate_reply(user_id, "hello")
         self.assertEqual(reply, "k gardai xau?")
 
+        # Check that extra_headers was passed to OpenRouter call
+        _, kwargs = mock_client.chat.completions.create.call_args
+        self.assertIn("extra_headers", kwargs)
+        self.assertEqual(
+            kwargs["extra_headers"],
+            {
+                "HTTP-Referer": "https://your-project-name.example.com",
+                "X-Title": "Sristi Companion Bot",
+            },
+        )
+
         # Check DB messages saved
         messages = bot.get_recent_messages(user_id)
         self.assertEqual(len(messages), 2)
@@ -98,17 +109,17 @@ class TestSristiBot(unittest.TestCase):
         self.assertEqual(messages[1]["role"], "assistant")
         self.assertEqual(messages[1]["content"], "k gardai xau?")
 
-    def test_gemini_client_configuration(self):
-        saved_key = bot.OPENAI_API_KEY
+    def test_openrouter_client_configuration(self):
+        saved_key = bot.OPENROUTER_API_KEY
         saved_client = bot.client
         try:
-            bot.OPENAI_API_KEY = "test-gemini-key"
+            bot.OPENROUTER_API_KEY = "test-openrouter-key"
             bot.client = None
             client = bot.get_openai_client()
-            self.assertEqual(str(client.base_url), "https://generativelanguage.googleapis.com/v1beta/openai/")
-            self.assertEqual(bot.MODEL_NAME, "gemini-3.6-flash")
+            self.assertEqual(str(client.base_url).rstrip("/"), "https://openrouter.ai/api/v1")
+            self.assertEqual(bot.MODEL_NAME, "google/gemma-4-31b-it:free")
         finally:
-            bot.OPENAI_API_KEY = saved_key
+            bot.OPENROUTER_API_KEY = saved_key
             bot.client = saved_client
 
 

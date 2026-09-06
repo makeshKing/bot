@@ -11,7 +11,7 @@ What this does:
   - Tracks each user's conversation history in a local SQLite database
   - Periodically summarizes old messages into a short memory summary
     (so the persona "remembers" things without resending the whole history)
-  - Calls OpenAI's API with the Sristi persona prompt + recent history
+  - Calls OpenRouter's API with the Sristi persona prompt + recent history
   - Sends the reply back to the user
 """
 
@@ -31,9 +31,9 @@ from persona import build_system_prompt
 
 load_dotenv()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-MODEL_NAME = os.getenv("MODEL_NAME", "gemini-3.6-flash")
+MODEL_NAME = os.getenv("MODEL_NAME", "google/gemma-4-31b-it:free")
 DB_PATH = os.getenv("DB_PATH", "sristi.db")
 
 RECENT_MESSAGES_LIMIT = 12       # how many raw messages to keep in the prompt every time
@@ -48,11 +48,11 @@ client = None
 def get_openai_client() -> OpenAI:
     global client
     if client is None:
-        if not OPENAI_API_KEY or OPENAI_API_KEY == "your_openai_api_key_here" or OPENAI_API_KEY == "your_gemini_api_key_here":
-            raise ValueError("OPENAI_API_KEY is not configured. Please set it in your .env file.")
+        if not OPENROUTER_API_KEY or OPENROUTER_API_KEY in ("your_openrouter_api_key_here", "your_openai_api_key_here", "your_gemini_api_key_here"):
+            raise ValueError("OPENROUTER_API_KEY is not configured. Please set it in your .env file.")
         client = OpenAI(
-            api_key=OPENAI_API_KEY,
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            api_key=OPENROUTER_API_KEY,
+            base_url="https://openrouter.ai/api/v1",
         )
     return client
 
@@ -187,6 +187,13 @@ def summarize_old_messages(user_id: int, existing_summary: str):
     response = ai_client.chat.completions.create(
         model=MODEL_NAME,
         messages=[{"role": "user", "content": prompt}],
+        extra_headers={
+            "HTTP-Referer": "https://your-project-name.example.com",
+            "X-Title": "Sristi Companion Bot",
+        },
+        extra_body={
+            "models": [MODEL_NAME, "openrouter/free"] if MODEL_NAME != "openrouter/free" else [MODEL_NAME]
+        },
     )
     new_summary = (response.choices[0].message.content or "").strip()
     if new_summary:
@@ -217,6 +224,13 @@ def generate_reply(user_id: int, user_message: str) -> str:
     response = ai_client.chat.completions.create(
         model=MODEL_NAME,
         messages=messages,
+        extra_headers={
+            "HTTP-Referer": "https://your-project-name.example.com",
+            "X-Title": "Sristi Companion Bot",
+        },
+        extra_body={
+            "models": [MODEL_NAME, "openrouter/free"] if MODEL_NAME != "openrouter/free" else [MODEL_NAME]
+        },
     )
     content = response.choices[0].message.content
     reply = content.strip() if content else "hmm kehi issue vayo jasto cha, feri bhana na"
@@ -250,8 +264,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def check_configuration():
     issues = []
-    if not OPENAI_API_KEY or OPENAI_API_KEY in ("your_openai_api_key_here", "your_gemini_api_key_here"):
-        issues.append("- OPENAI_API_KEY is missing or unconfigured in .env (get one from https://aistudio.google.com)")
+    if not OPENROUTER_API_KEY or OPENROUTER_API_KEY in ("your_openrouter_api_key_here", "your_openai_api_key_here", "your_gemini_api_key_here"):
+        issues.append("- OPENROUTER_API_KEY is missing or unconfigured in .env (get one from https://openrouter.ai)")
     if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "your_telegram_bot_token_here":
         issues.append("- TELEGRAM_BOT_TOKEN is missing or unconfigured in .env")
     return issues
@@ -264,8 +278,8 @@ def cli_chat():
     print("  Sristi CLI Chat (Terminal Mode)")
     print("  Type your message and press Enter. Type 'exit' to quit.")
     print("=======================================================")
-    if not OPENAI_API_KEY or OPENAI_API_KEY == "your_openai_api_key_here":
-        print("[!] Note: OPENAI_API_KEY is not set in .env yet.")
+    if not OPENROUTER_API_KEY or OPENROUTER_API_KEY in ("your_openrouter_api_key_here", "your_openai_api_key_here"):
+        print("[!] Note: OPENROUTER_API_KEY is not set in .env yet.")
         print("    Please set your key in .env to talk with Sristi.\n")
         return
     user_id = 12345678  # Dedicated CLI test user ID
@@ -297,7 +311,7 @@ def main():
             print(f" {issue}")
         print("\n Steps to configure:")
         print(" 1. Open the '.env' file in this folder.")
-        print(" 2. Set your OPENAI_API_KEY (from https://aistudio.google.com).")
+        print(" 2. Set your OPENROUTER_API_KEY (from https://openrouter.ai).")
         print(" 3. Set your TELEGRAM_BOT_TOKEN (from @BotFather on Telegram).")
         print(" 4. Run 'python bot.py' again.")
         print("=" * 60 + "\n")
