@@ -31,10 +31,13 @@ from persona import build_system_prompt
 
 load_dotenv()
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-MODEL_NAME = os.getenv("MODEL_NAME", "google/gemma-4-31b-it:free")
-DB_PATH = os.getenv("DB_PATH", "sristi.db")
+os.environ.setdefault("OPENROUTER_API_KEY", "")
+os.environ.setdefault("TELEGRAM_BOT_TOKEN", "")
+
+OPENROUTER_API_KEY = os.environ["OPENROUTER_API_KEY"].strip()
+TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"].strip()
+MODEL_NAME = os.environ.get("MODEL_NAME", "google/gemma-4-31b-it:free").strip()
+DB_PATH = os.environ.get("DB_PATH", "sristi.db").strip()
 
 RECENT_MESSAGES_LIMIT = 12       # how many raw messages to keep in the prompt every time
 SUMMARIZE_AFTER_MESSAGES = 30    # once a user's raw history passes this, summarize the old part
