@@ -137,9 +137,15 @@ def split_into_messages(reply: str) -> list[str]:
     return [p for p in parts if p]
 
 
-def compute_reply_delay(incoming_text: str, reply_text: str) -> float:
+def compute_reply_delay(incoming_text: str, reply_text: str, is_followup: bool = False) -> float:
     """Returns a delay in seconds meant to simulate realistic human reading
-    and typing time."""
+    and typing time. Follow-up parts (double/triple texting) use shorter delays."""
+    if is_followup:
+        # Follow-up messages come faster - just typing time with a short pause
+        typing_time = len(reply_text) * random.uniform(0.02, 0.04)
+        pause = random.uniform(0.4, 1.0)
+        return max(0.5, min(pause + typing_time, 3.5))
+
     # Reading time: a moment to read what the user sent, scales with length
     reading_time = min(len(incoming_text) * random.uniform(0.015, 0.03), 2.5)
 
@@ -154,6 +160,8 @@ def compute_reply_delay(incoming_text: str, reply_text: str) -> float:
     # Cap it so users never wait uncomfortably long, floor so it's never
     # instant either
     return max(0.8, min(total, 6.0))
+
+
 
 
 def save_message(user_id: int, role: str, content: str, timestamp: str | None = None):
@@ -239,15 +247,6 @@ def call_openai_with_retry(messages: list, max_retries: int = 3, initial_delay: 
             response = ai_client.chat.completions.create(
                 model=MODEL_NAME,
                 messages=messages,
-                extra_body={
-                    "extra_body": {
-                        "google": {
-                            "thinking_config": {
-                                "include_thoughts": False,
-                            }
-                        }
-                    }
-                },
             )
             content = response.choices[0].message.content
             cleaned = strip_thinking_tags(content) if content else ""
@@ -612,7 +611,7 @@ async def send_split_message_sequence(
         except Exception:
             logger.warning("Failed to send chat action typing")
 
-        delay = compute_reply_delay(context_text, part)
+        delay = compute_reply_delay(context_text, part, is_followup=(i > 0))
         await asyncio.sleep(delay)
 
         if reply_to_message:
